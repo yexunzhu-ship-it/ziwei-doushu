@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import BirthForm from '@/components/BirthForm';
+import { useRef, useState } from 'react';
+import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import ChartBoard from '@/components/ChartBoard';
 import InsightPanel from '@/components/InsightPanel';
 import TimeNav, { type TimeView } from '@/components/TimeNav';
@@ -22,6 +22,8 @@ export default function ChartPage() {
   const [selectedPalace, setSelectedPalace] = useState<Palace | null>(null);
   const [view, setView] = useState<TimeView>('mingpan');
   const [liunianYear, setLiunianYear] = useState(() => new Date().getFullYear());
+  // 原始填报表单（含未校正的钟点），用于跳到「本地解读」时按数据集口径查
+  const formRef = useRef<BirthFormState | null>(null);
 
   // ── 未起盘：展示出生信息表单 ──
   if (!chart) {
@@ -33,24 +35,48 @@ export default function ChartPage() {
           <br />
           （本页为引擎 Demo，完整商业版界面不在开源范围；排盘内核完全开放。）
         </p>
-        <BirthForm onSubmit={(info: BirthInfo) => setChart(generateChart(info))} />
+        <BirthForm
+          onSubmit={(info: BirthInfo) => setChart(generateChart(info))}
+          onFormSave={(d: BirthFormState) => { formRef.current = d; }}
+        />
       </main>
     );
   }
 
+  // 计算「本地解读」链接：用填报时的钟点换算时辰（数据集口径，不做真太阳时校正）
+  const f = formRef.current;
+  const rawHour = f && !f.unknownTime
+    ? Math.floor(((parseInt(f.clockHour) || 0) * 60 + (parseInt(f.clockMinute) || 0) + 60) / 120) % 12
+    : chart.birthInfo.hour;
+  const interpHref =
+    `/interp?y=${chart.birthInfo.year}&m=${chart.birthInfo.month}&d=${chart.birthInfo.day}` +
+    `&h=${rawHour}&g=${chart.birthInfo.gender}`;
+
   // ── 已起盘：命盘 + 解读 ──
   return (
     <main style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 16px' }}>
-      <button
-        type="button"
-        onClick={() => { setChart(null); setSelectedPalace(null); }}
-        style={{
-          marginBottom: 16, padding: '6px 14px', cursor: 'pointer',
-          border: '1px solid #ccc', borderRadius: 8, background: 'transparent',
-        }}
-      >
-        ← 重新起盘
-      </button>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => { setChart(null); setSelectedPalace(null); }}
+          style={{
+            padding: '6px 14px', cursor: 'pointer',
+            border: '1px solid #ccc', borderRadius: 8, background: 'transparent',
+          }}
+        >
+          ← 重新起盘
+        </button>
+        <a
+          href={interpHref}
+          style={{
+            padding: '6px 14px', borderRadius: 8, fontSize: 13, textDecoration: 'none',
+            border: '1px solid var(--ac-bdr)', background: 'var(--ac-bg)', color: 'var(--ac)',
+          }}
+          title="用开源解读数据集 v4.0 查看这张盘的 13 维解读（本地数据，不经 AI）"
+        >
+          本地解读（数据集）→
+        </a>
+      </div>
 
       <TimeNav
         chart={chart}

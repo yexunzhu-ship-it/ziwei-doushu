@@ -7,3 +7,6 @@ dist/
 *.tsbuildinfo
 .DS_Store
 node_modules
+
+# 本地解读数据集 v4.0（134 MB，按需下载，不进版本库）
+data/interp-v4/
